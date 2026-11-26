@@ -1,0 +1,642 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tickets escalados a Galileo</title>
+<meta name="description" content="Tiempo a solución de los tickets escalados en #support-stream-aligned-teams, por analista de Tech y por periodo.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400&display=swap">
+<style>
+:root {
+  --color-fg: #1d2329; --color-fg-muted: #5c6670; --color-bg: #f7f8f9; --color-panel: #ffffff;
+  --color-border-line: #e1e5e9; --color-ok: #1f7a4d; --color-warn: #b7791f; --color-bad: #c0392b;
+  --chart-1: #2f6fb3; --chart-2: #3f9b8e; --chart-3: #b5703a;
+  --cds-chart-muted: #b8c3cd; --cds-chart-grid: #e8ecef; --cds-chart-axis: #c6ced5; --cds-chart-reference: #8a96a1;
+  --cds-text-secondary: #5c6670; --cds-surface-popover: #ffffff; --cds-border: #d5dbe0; --cds-shadow-popover: 0 4px 16px rgba(20,30,40,.12);
+  --font-anthropic-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-anthropic-serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --cds-font-size-caption: 12px; --cds-font-size-body: 15px; --cds-font-size-heading: 18px; --cds-font-size-title: 30px;
+  --cds-font-weight-medium: 600;
+  --cds-gap-xs: 4px; --cds-gap-sm: 8px; --cds-gap-md: 12px; --cds-gap-lg: 20px; --cds-gap-xl: 32px;
+  --cds-pad-xs: 4px; --cds-pad-sm: 6px; --cds-pad-md: 10px; --cds-pad-lg: 16px; --cds-pad-xl: 24px;
+  --cds-radius: 8px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-fg: #e6e9ec; --color-fg-muted: #9aa5af; --color-bg: #14181c; --color-panel: #1c2126;
+    --color-border-line: #2c333a; --color-ok: #4cc38a; --color-warn: #e2a64a; --color-bad: #ef6b5e;
+    --chart-1: #6aa5e6; --chart-2: #5cc2b3; --chart-3: #e0975e;
+    --cds-chart-muted: #4a5560; --cds-chart-grid: #262d33; --cds-chart-axis: #3a434b; --cds-chart-reference: #7f8b96;
+    --cds-text-secondary: #9aa5af; --cds-surface-popover: #222830; --cds-border: #353d45; --cds-shadow-popover: 0 4px 16px rgba(0,0,0,.4);
+    color-scheme: dark;
+  }
+}
+html, body { margin: 0; }
+body { background: var(--color-bg); color: var(--color-fg); font-family: var(--font-anthropic-sans); font-size: var(--cds-font-size-body); line-height: 1.45; }
+#dash-root { max-width: 1180px; margin: 0 auto; padding-block: 28px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.dash-select { font: inherit; color: var(--color-fg); background-color: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: 6px 10px; }
+.dash-skeleton { position: relative; color: transparent !important; }
+.dash-skeleton > * { visibility: hidden; }
+.dash-skeleton::after { content: ""; position: absolute; inset: 0; border-radius: var(--cds-radius); background: var(--color-border-line); opacity: .5; }
+@media (prefers-reduced-motion: no-preference) { .dash-skeleton::after { animation: tkpulse 1.4s ease-in-out infinite; } }
+@keyframes tkpulse { 50% { opacity: .25; } }
+.tk-footer { margin-top: 40px; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+.tk-footer a { color: inherit; }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="dash-shim.js"></script>
+<script>dash._setDefaults({ agrupar: 'mes', periodo: '' });</script>
+</head>
+<body>
+<div id="dash-root" lang="es-MX">
+<style>
+.tk { display: flex; flex-direction: column; gap: var(--cds-gap-xl); }
+.tk h1 { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); margin: 0; text-wrap: balance; }
+.tk h2 { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); margin: 0 0 var(--cds-gap-xs); }
+.tk-sub { color: var(--color-fg-muted); margin: 0; max-width: 70ch; }
+.tk-lead { margin: var(--cds-gap-sm) 0 0; max-width: 70ch; font-size: var(--cds-font-size-body); line-height: 1.5; }
+.tk-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--cds-gap-md); }
+.tk-card { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); display: flex; flex-direction: column; gap: var(--cds-gap-xs); min-width: 0; }
+.tk-label { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); letter-spacing: .02em; }
+.tk-num { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); font-variant-numeric: tabular-nums; }
+.tk-num.bad { color: var(--color-bad); }
+.tk-note { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+.tk-chart { position: relative; min-height: 320px; }
+.tk-chart svg { display: block; width: 100%; }
+.tk-chart text { fill: var(--cds-text-secondary); font-size: var(--cds-font-size-caption); }
+.tk-chart .tk-name { fill: var(--color-fg); }
+.tk-tip { position: absolute; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); box-shadow: var(--cds-shadow-popover); border-radius: var(--cds-radius); padding: var(--cds-pad-sm) var(--cds-pad-md); font-size: var(--cds-font-size-caption); white-space: nowrap; }
+.tk-wrap { overflow-x: auto; }
+.tk table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+.tk th, .tk td { text-align: right; padding: var(--cds-pad-sm) var(--cds-pad-md); border-bottom: 1px solid var(--color-border-line); white-space: nowrap; }
+.tk th:first-child, .tk td:first-child { text-align: left; }
+.tk th { font-weight: var(--cds-font-weight-medium); color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+.tk-warn { border-left: 3px solid var(--color-warn); padding: var(--cds-pad-sm) var(--cds-pad-md); background: var(--color-panel); border-radius: var(--cds-radius); max-width: 80ch; }
+.tk-warn p { margin: 0 0 var(--cds-gap-xs); }
+.tk details { max-width: 80ch; }
+.tk details.tk-periodos { max-width: none; margin-top: var(--cds-gap-md); }
+.tk-scroll { max-height: 420px; overflow-y: auto; }
+.tk-filtros { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--cds-gap-md); }
+.tk-field { display: flex; flex-direction: column; gap: var(--cds-gap-xs); min-width: 0; }
+.tk-field select { min-width: 160px; max-width: 100%; }
+.tk-btn { font: inherit; color: var(--color-fg); background-color: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-sm) var(--cds-pad-md); cursor: pointer; }
+.tk-btn:hover { border-color: var(--color-fg-muted); }
+.tk-btn:focus-visible, .tk-field select:focus-visible { outline: 2px solid var(--color-fg); outline-offset: 2px; }
+.tk-mostrando { flex-basis: 100%; }
+.tk-chart-v { min-height: 280px; }
+.tk details li { margin-bottom: var(--cds-gap-xs); }
+</style>
+
+<div class="tk">
+  <header id="titulo">
+    <h1>Tickets escalados a Galileo</h1>
+    <p class="tk-sub">Solo los tickets de ClickUp que se escalaron en el canal de Slack #support-stream-aligned-teams. En vivo, tickets creados del <span data-draw="desde" data-source="resumen" data-field="desde" data-row="0">—</span> al <span data-draw="hasta" data-source="resumen" data-field="hasta" data-row="0">—</span>.</p>
+    <p class="tk-lead">De los tickets que sí tienen responsable, la mitad tiene solución en menos de <b data-draw="med_asig" data-source="resumen" data-field="mediana_asignados_h" data-row="0">—</b>. <b data-draw="pct_sin" data-source="resumen" data-field="pct_sin_asignar" data-row="0">—</b> de los tickets no tienen responsable en ClickUp, así que no se pueden atribuir a ningún analista.</p>
+  </header>
+
+  <section id="filtros" class="tk-filtros" aria-label="Filtros">
+    <label class="tk-field"><span class="tk-label">Agrupar por</span>
+      <select class="dash-select" id="tk-agrupar" aria-label="Agrupar por">
+        <option value="dia">Día</option>
+        <option value="semana">Semana</option>
+        <option value="mes">Mes</option>
+        <option value="trimestre">Trimestre (Q)</option>
+        <option value="semestre">Semestre</option>
+        <option value="anio">Año</option>
+      </select>
+    </label>
+    <label class="tk-field"><span class="tk-label">Periodo</span>
+      <select class="dash-select" data-draw="periodo" data-source="periodos" aria-label="Periodo"></select>
+    </label>
+    <button type="button" class="tk-btn" id="tk-reset">Quitar filtros</button>
+    <p class="tk-sub tk-mostrando">Mostrando: <b data-draw="mostrando">—</b></p>
+  </section>
+
+  <section id="resumen" class="tk-tiles">
+    <div class="tk-card"><span class="tk-label">Tickets escalados</span><span class="tk-num" data-draw="total" data-source="resumen" data-field="total" data-row="0">—</span><span class="tk-note">Creados en el periodo</span></div>
+    <div class="tk-card"><span class="tk-label">Con solución</span><span class="tk-num" data-draw="resueltos" data-source="resumen" data-field="resueltos" data-row="0">—</span><span class="tk-note">Pasaron a review o se cerraron</span></div>
+    <div class="tk-card"><span class="tk-label">Siguen abiertos</span><span class="tk-num" data-draw="abiertos" data-source="resumen" data-field="abiertos" data-row="0">—</span><span class="tk-note">Algunos ya se resolvieron en Slack</span></div>
+    <div class="tk-card"><span class="tk-label">Sin responsable</span><span class="tk-num bad" data-draw="sin" data-source="resumen" data-field="sin_asignar" data-row="0">—</span><span class="tk-note">No se pueden atribuir a nadie</span></div>
+    <div class="tk-card"><span class="tk-label">Mediana a solución</span><span class="tk-num" data-draw="med" data-source="resumen" data-field="mediana_h" data-row="0">—</span><span class="tk-note">Todos los tickets medibles</span></div>
+  </section>
+
+  <section id="tendencia">
+    <h2>Mediana de horas hasta la solución, por periodo</h2>
+    <p class="tk-sub">Sin periodo elegido, cada barra es un periodo según "Agrupar por". Con un periodo elegido, se desglosa por la unidad siguiente: año, semestre y Q por mes, mes por semana, y semana o día por día. Sobre la barra va cuántos tickets se crearon; con un clic en una barra filtras ese periodo. Se muestran las últimas 24 barras; la tabla de abajo tiene todas.</p>
+    <div class="tk-chart tk-chart-v dash-skeleton" data-draw="tendencia" data-source="por_periodo"></div>
+    <details class="tk-periodos">
+      <summary>Tabla por periodo</summary>
+      <div class="tk-wrap tk-scroll">
+        <table data-source="por_periodo" data-row-key="periodo">
+          <thead><tr>
+            <th data-field="periodo">Periodo</th>
+            <th data-field="tickets">Tickets</th>
+            <th data-field="resueltos">Con solución</th>
+            <th data-field="medidos">Medidos</th>
+            <th data-field="mediana_h">Mediana (h)</th>
+            <th data-field="sin_asignar">Sin responsable</th>
+          </tr></thead>
+          <tbody data-draw="tabla_periodo"></tbody>
+        </table>
+      </div>
+    </details>
+  </section>
+
+  <section id="grafica-persona">
+    <h2>Mediana de horas hasta la solución, por analista de Tech</h2>
+    <p class="tk-sub">Horas de calendario desde que se crea el ticket hasta que pasa a review o se cierra. Junto a cada barra va el número de tickets medidos; con menos de 3, el dato es poco confiable.</p>
+    <div class="tk-chart dash-skeleton" data-draw="chart" data-source="por_persona"></div>
+  </section>
+
+  <section id="tabla-persona">
+    <h2>Detalle por analista de Tech</h2>
+    <p class="tk-sub">Solo los 32 analistas de desarrollo de Tech, aunque no tengan tickets en el periodo. Los tickets asignados a otras personas o sin responsable no aparecen aquí, pero sí en los totales de arriba.</p>
+    <div class="tk-wrap">
+      <table data-source="por_persona" data-row-key="responsable">
+        <thead><tr>
+          <th data-field="responsable">Analista</th>
+          <th data-field="tickets">Tickets</th>
+          <th data-field="resueltos">Con solución</th>
+          <th data-field="medidos">Medidos</th>
+          <th data-field="mediana_h">Mediana (h)</th>
+          <th data-field="p75_h">75% en menos de (h)</th>
+          <th data-field="abiertos">Abiertos</th>
+        </tr></thead>
+        <tbody data-draw="tabla_persona"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="tabla-lista">
+    <h2>Por lista</h2>
+    <div class="tk-wrap">
+      <table data-source="por_lista" data-row-key="lista">
+        <thead><tr>
+          <th data-field="lista">Lista</th>
+          <th data-field="tickets">Tickets</th>
+          <th data-field="con_responsable">Con responsable</th>
+          <th data-field="abiertos">Abiertos</th>
+          <th data-field="mediana_h">Mediana (h)</th>
+        </tr></thead>
+        <tbody data-draw="tabla_lista"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="calidad" class="tk-warn">
+    <p><b>Antes de comparar personas</b></p>
+    <p>Foundational Services casi nunca asigna responsable en ClickUp, y muchos de sus tickets se quedan en Open aunque en Slack ya se marcaron con ✅. Para medir a ese equipo, hay que asignar el ticket al tomarlo y moverlo a review o Closed al resolverlo.</p>
+    <p>Cuando se cierran muchos tickets de golpe (5 o más en la misma hora), su fecha de cierre no es la fecha real de solución. Los que no pasaron antes por review quedan fuera de las medianas: hoy son <b data-draw="masivos" data-source="resumen" data-field="cierres_masivos" data-row="0">—</b> tickets.</p>
+  </section>
+
+  <details id="metodo">
+    <summary>Cómo se calcula</summary>
+    <ul>
+      <li><b>Tiempo a solución:</b> desde que se crea el ticket hasta que pasa a review (solución entregada). Si nunca pasó por review, hasta que se cerró.</li>
+      <li><b>Medidos:</b> tickets con solución, sin contar los que se cerraron en una limpieza masiva sin pasar por review.</li>
+      <li><b>Mediana:</b> la mitad de los tickets tardó menos que esto. Se usa en lugar del promedio porque unos cuantos tickets de semanas lo distorsionan.</li>
+      <li>Son horas de calendario, incluidas noches y fines de semana.</li>
+      <li>Si un ticket tiene dos responsables, cuenta para los dos.</li>
+      <li><b>Qué tickets entran:</b> los que tienen un link de ClickUp en un mensaje principal del canal #support-stream-aligned-teams desde enero de 2025 (no en respuestas de hilo), y que están en Customer Journey, Foundational Services o Reporte de Incidentes/Problemas Service Desk.</li>
+    </ul>
+  </details>
+</div>
+
+<script>
+window.tkFmt = d3.format(',.1f');
+window.tkInt = d3.format(',d');
+
+dash.loader('tickets', {
+  description: 'Trae todas las páginas de las tres listas (hasta 20 páginas, 2,000 tickets) y su historial de estados, y deja una fila por ticket con sus fechas de creación, paso a review y cierre.',
+  fn: async ({ answer, call, args }) => {
+    const MAX_PAGES = 20;
+    if (!answer || !Array.isArray(answer.tasks)) throw new Error(typeof answer === 'string' ? answer : 'ClickUp no devolvió tareas.');
+    const tasks = [...answer.tasks];
+    let page = answer, pages = 1;
+    while (page.has_more && pages < MAX_PAGES) {
+      page = await call('clickup_filter_tasks', { ...args, page: page.next_page });
+      if (!page || !Array.isArray(page.tasks)) throw new Error('ClickUp no devolvió la página ' + (pages + 1) + '.');
+      tasks.push(...page.tasks); pages++;
+    }
+    const hist = {};
+    const chunks = [];
+    for (let i = 0; i < tasks.length; i += 100) chunks.push(tasks.slice(i, i + 100).map((t) => t.id));
+    const answers = await Promise.all(chunks.map((ids) => call('clickup_get_bulk_tasks_time_in_status', { task_ids: ids })));
+    for (const r of answers) {
+      if (!r || !r.tasks) throw new Error('ClickUp no devolvió el historial de estados.');
+      Object.assign(hist, r.tasks);
+    }
+    const iso = (ms) => ms ? new Date(+ms - 6 * 3600e3).toISOString().slice(0, 16) : null;
+    const rows = tasks.map((t) => {
+      const h = (hist[t.id] && hist[t.id].status_history) || [];
+      const since = h.map((s) => +s.since).filter(Boolean);
+      const rev = h.find((s) => String(s.status).toLowerCase() === 'review');
+      const closedEntry = h.find((s) => s.type === 'closed');
+      const closed = t.date_closed || (closedEntry ? closedEntry.since : null);
+      return {
+        id: String(t.id),
+        ticket: t.name,
+        url: t.url,
+        lista: t.list ? t.list.name : '',
+        responsable: (t.assignees || []).map((a) => a.username).join('; ') || 'Sin asignar',
+        responsables_ids: (t.assignees || []).map((a) => String(a.id)).join(';'),
+        estado_clickup: t.status,
+        creado: iso(since.length ? Math.min(...since) : null),
+        review: iso(rev ? rev.since : null),
+        cerrado: iso(closed),
+      };
+    });
+    return { rows, columns: ['id', 'ticket', 'url', 'lista', 'responsable', 'responsables_ids', 'estado_clickup', 'creado', 'review', 'cerrado'], truncated: !!page.has_more };
+  },
+});
+
+dash.loader('canal', {
+  description: 'Lee todos los mensajes principales del canal desde el 1 de enero de 2025, página por página, y saca los tickets de ClickUp enlazados en ellos (manuales o del bot), con la fecha del primer mensaje que lo menciona.',
+  fn: async ({ answer, call, args }) => {
+    const MAX_PAGES = 60;
+    if (answer && answer.error) throw new Error(answer.error.message || String(answer.error));
+    const texto = (a) => typeof a === 'string' ? a : (a && typeof a.messages === 'string' ? a.messages : JSON.stringify(a || ''));
+    const cursor = (a) => {
+      const s = a && typeof a === 'object' ? String(a.pagination_info || '') : String(a || '');
+      const m = s.match(/cursor:\s*`([^`]+)`/);
+      return m ? m[1] : null;
+    };
+    const pages = [answer];
+    let c = cursor(answer), n = 1;
+    while (c && n < MAX_PAGES) {
+      const a = await call('slack_read_channel', { ...args, cursor: c });
+      if (a && a.error) throw new Error(a.error.message || String(a.error));
+      pages.push(a); c = cursor(a); n++;
+    }
+    const first = new Map();
+    for (const p of pages) {
+      const t = texto(p);
+      const blocks = t.split('=== Message from ').slice(1);
+      for (const b of blocks) {
+        const f = b.match(/ at (\d{4}-\d{2}-\d{2} \d{2}:\d{2}):\d{2} [A-Z]+ ===/);
+        const fecha = f ? f[1].replace(' ', 'T') : null;
+        for (const m of b.matchAll(/app\.clickup\.com\/t\/(?:\d+\/)?([0-9a-z]+)/g)) {
+          const id = m[1];
+          if (!first.has(id) || (fecha && first.get(id) > fecha)) first.set(id, fecha);
+        }
+      }
+    }
+    const rows = [...first].map(([id, fecha]) => ({ id, fecha_canal: fecha }));
+    return { rows, columns: ['id', 'fecha_canal'], truncated: !!c };
+  },
+});
+
+dash.calc('medicion', {
+  inputs: ['tickets', 'canal'],
+  title: 'Horas a solución por ticket escalado en el canal',
+  description: 'Solo los tickets enlazados en #support-stream-aligned-teams. Horas desde la creación hasta review (o hasta el cierre si no pasó por review). Marca los cierres masivos: 5 o más cierres en la misma hora sin review previo.',
+  fn: (tickets, canal) => {
+    const t = (s) => s ? Date.parse(s + ':00Z') : null;
+    const closes = tickets.map((x) => t(x.cerrado)).filter(Boolean);
+    const enCanal = new Set(canal.map((r) => String(r.id)));
+    return tickets.filter((x) => enCanal.has(String(x.id))).map((x) => {
+      const c = t(x.creado), r = t(x.review), cl = t(x.cerrado);
+      const sol = r || cl;
+      const masivo = !r && !!cl && closes.filter((y) => Math.abs(y - cl) <= 3600e3).length >= 5;
+      const dc = x.creado ? new Date(x.creado.slice(0, 10) + 'T00:00:00Z') : null;
+      const y = dc ? dc.getUTCFullYear() : null, m = dc ? dc.getUTCMonth() : null;
+      const lunes = dc ? new Date(dc.getTime() - ((dc.getUTCDay() + 6) % 7) * 864e5).toISOString().slice(0, 10) : null;
+      return {
+        id: x.id, ticket: x.ticket, lista: x.lista, responsable: x.responsable, responsables_ids: x.responsables_ids, creado: x.creado,
+        dia: dc ? x.creado.slice(0, 10) : null,
+        semana: lunes,
+        mes: dc ? x.creado.slice(0, 7) : null,
+        trimestre: dc ? `${y}-Q${Math.floor(m / 3) + 1}` : null,
+        semestre: dc ? `${y}-S${m < 6 ? 1 : 2}` : null,
+        anio: dc ? String(y) : null,
+        horas_a_solucion: sol && c ? Math.round((sol - c) / 360e3) / 10 : null,
+        estado: sol ? 'Resuelto' : 'Abierto',
+        cierre_masivo: masivo,
+        cuenta: !!sol && !!c && !masivo,
+      };
+    });
+  },
+});
+
+window.tkEtiqueta = (g, k) => {
+  if (k == null || k === '') return 'Todos';
+  const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const dm = (s) => `${+s.slice(8, 10)} ${meses[+s.slice(5, 7) - 1]} ${s.slice(0, 4)}`;
+  if (g === 'dia') return dm(k);
+  if (g === 'semana') return 'Sem. del ' + dm(k);
+  if (g === 'mes') return `${meses[+k.slice(5, 7) - 1]} ${k.slice(0, 4)}`;
+  if (g === 'trimestre') return `${k.slice(5)} ${k.slice(0, 4)}`;
+  if (g === 'semestre') return `${k.slice(5)} ${k.slice(0, 4)}`;
+  return k;
+};
+
+dash.calc('filtrados', {
+  inputs: ['medicion'],
+  title: 'Tickets del periodo elegido',
+  description: 'Los tickets creados en el periodo que se eligió en el filtro (día, semana, mes, Q, semestre o año). Con "Todos", todos los tickets.',
+  fn: (medicion) => {
+    const p = dash.params();
+    const g = p.agrupar || 'mes';
+    return p.periodo ? medicion.filter((t) => t[g] === p.periodo) : medicion;
+  },
+});
+
+dash.calc('periodos', {
+  inputs: ['medicion'],
+  title: 'Periodos disponibles',
+  description: 'Los periodos que hay en los datos según "Agrupar por", con cuántos tickets tiene cada uno. Llenan la lista del filtro Periodo.',
+  fn: (medicion) => {
+    const g = dash.params().agrupar || 'mes';
+    return d3.rollups(medicion.filter((t) => t[g]), (ts) => ts.length, (t) => t[g])
+      .map(([periodo, tickets]) => ({ periodo, tickets }))
+      .sort((a, b) => d3.ascending(a.periodo, b.periodo));
+  },
+});
+
+dash.calc('por_periodo', {
+  inputs: ['filtrados'],
+  title: 'Tiempo a solución por periodo',
+  description: 'Tickets creados, con solución, medidos y mediana de horas a solución por periodo. Sin periodo elegido, por la unidad de "Agrupar por"; con periodo elegido, desglosado por la unidad siguiente (año/semestre/Q → mes, mes → semana, semana/día → día).',
+  fn: (filtrados) => {
+    const p = dash.params();
+    const g = p.agrupar || 'mes';
+    const desglose = { anio: 'mes', semestre: 'mes', trimestre: 'mes', mes: 'semana', semana: 'dia', dia: 'dia' };
+    const nivel = p.periodo ? desglose[g] : g;
+    return d3.groups(filtrados.filter((t) => t[nivel]), (t) => t[nivel]).map(([periodo, ts]) => {
+      const hrs = ts.filter((t) => t.cuenta === true).map((t) => +t.horas_a_solucion);
+      return {
+        periodo,
+        nivel,
+        tickets: ts.length,
+        resueltos: ts.filter((t) => t.estado === 'Resuelto').length,
+        medidos: hrs.length,
+        mediana_h: hrs.length ? Math.round(d3.median(hrs) * 10) / 10 : null,
+        sin_asignar: ts.filter((t) => t.responsable === 'Sin asignar').length,
+      };
+    }).sort((a, b) => d3.ascending(a.periodo, b.periodo));
+  },
+});
+
+dash.calc('por_persona', {
+  inputs: ['filtrados'],
+  title: 'Tiempo a solución por analista de Tech',
+  description: 'Solo los 32 analistas de desarrollo de Tech (id de ClickUp → nombre). Agrupa los tickets por analista asignado y calcula mediana y percentil 75 de horas a solución, solo con tickets medibles.',
+  fn: (tickets) => {
+    // Analistas de desarrollo de Tech, elegidos por Memo (ClickUp user id → nombre).
+    const ANALISTAS = {
+      26231063: 'Sebastián Hernández', 26224777: 'Erick Sánchez', 48626474: 'Luis Tapia', 26299773: 'Leonardo Alonso',
+      89252977: 'Erick González', 26218141: 'Osmar Rodríguez', 26160460: 'José Morales', 26160570: 'Luis Fernando Mendoza',
+      26224781: 'Victor Vega', 26224776: 'David Flores', 26224779: 'Juan Carlos Rodríguez', 43108994: 'Angel Torquemada',
+      43120424: 'Omar Cocoletzi', 42496718: 'Susana Vega', 42525281: 'Enrique Cerrito', 49747045: 'Tatiana Chamat',
+      49782133: 'Emmanuel Servín', 55773562: 'Humberto Rochin', 61529508: 'Luis Abraham Meléndez', 61568376: 'Emmanuel Garzón',
+      89116247: 'Adán Parra', 89170554: 'Lizeth Sánchez', 84772009: 'Samantha Horta', 89240335: 'Jeannette Yáñez',
+      89282485: 'Jorge Bello', 89282484: 'Iván Mendoza', 89304227: 'Irlanda Ordoñez', 89389034: 'Saúl Hernández',
+      89390321: 'Luis Arturo Becerra', 180267174: 'Iván Acosta', 101191276: 'Emmanuel Reyes', 101380446: 'Elizabeth Rodríguez Fallas',
+    };
+    const groups = new Map(Object.values(ANALISTAS).map((n) => [n, []]));
+    for (const t of tickets) {
+      for (const id of String(t.responsables_ids || '').split(';')) {
+        const n = ANALISTAS[id];
+        if (n) groups.get(n).push(t);
+      }
+    }
+    const rows = [];
+    for (const [responsable, ts] of groups) {
+      const hrs = ts.filter((t) => t.cuenta === true).map((t) => +t.horas_a_solucion).sort(d3.ascending);
+      rows.push({
+        responsable,
+        tickets: ts.length,
+        resueltos: ts.filter((t) => t.estado === 'Resuelto').length,
+        medidos: hrs.length,
+        mediana_h: hrs.length ? Math.round(d3.median(hrs) * 10) / 10 : null,
+        p75_h: hrs.length ? Math.round(d3.quantileSorted(hrs, 0.75) * 10) / 10 : null,
+        abiertos: ts.filter((t) => t.estado === 'Abierto').length,
+      });
+    }
+    return rows.sort((a, b) => b.tickets - a.tickets || d3.ascending(a.responsable, b.responsable));
+  },
+});
+
+dash.calc('por_lista', {
+  inputs: ['filtrados'],
+  title: 'Resumen por lista',
+  description: 'Tickets, cuántos tienen responsable, abiertos y mediana de horas a solución por lista de ClickUp.',
+  fn: (tickets) => d3.groups(tickets, (t) => t.lista).map(([lista, ts]) => {
+    const hrs = ts.filter((t) => t.cuenta === true).map((t) => +t.horas_a_solucion);
+    return {
+      lista,
+      tickets: ts.length,
+      con_responsable: ts.filter((t) => t.responsable !== 'Sin asignar').length,
+      abiertos: ts.filter((t) => t.estado === 'Abierto').length,
+      mediana_h: hrs.length ? Math.round(d3.median(hrs) * 10) / 10 : null,
+    };
+  }),
+});
+
+dash.calc('resumen', {
+  inputs: ['filtrados'],
+  title: 'Resumen general',
+  description: 'Totales de tickets, abiertos, sin responsable, cierres masivos, rango de fechas y medianas de horas a solución.',
+  fn: (tickets) => {
+    const fechas = tickets.map((t) => t.creado).filter(Boolean).sort();
+    const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    const dia = (s) => s ? `${+s.slice(8, 10)} ${meses[+s.slice(5, 7) - 1]} ${s.slice(0, 4)}` : null;
+    const med = (ts) => { const h = ts.filter((t) => t.cuenta === true).map((t) => +t.horas_a_solucion); return h.length ? Math.round(d3.median(h) * 10) / 10 : null; };
+    const sin = tickets.filter((t) => t.responsable === 'Sin asignar').length;
+    return [{
+      total: tickets.length,
+      resueltos: tickets.filter((t) => t.estado === 'Resuelto').length,
+      abiertos: tickets.filter((t) => t.estado === 'Abierto').length,
+      sin_asignar: sin,
+      pct_sin_asignar: Math.round(sin / tickets.length * 100),
+      mediana_h: med(tickets),
+      mediana_asignados_h: med(tickets.filter((t) => t.responsable !== 'Sin asignar')),
+      cierres_masivos: tickets.filter((t) => t.cierre_masivo === true).length,
+      desde: dia(fechas[0]),
+      hasta: dia(fechas[fechas.length - 1]),
+    }];
+  },
+});
+
+function tkCell(name, field, fmt) {
+  dash.draw(name, (el) => {
+    const d = dash.data('resumen');
+    el.classList.toggle('dash-skeleton', d.status === 'loading');
+    if (d.status !== 'ok' || !d.data || !d.data[0]) { el.textContent = '—'; return; }
+    el.textContent = fmt(d.data[0][field]);
+  });
+}
+tkCell('total', 'total', (v) => tkInt(v));
+tkCell('resueltos', 'resueltos', (v) => tkInt(v));
+tkCell('abiertos', 'abiertos', (v) => tkInt(v));
+tkCell('sin', 'sin_asignar', (v) => tkInt(v));
+tkCell('med', 'mediana_h', (v) => v == null ? '—' : tkFmt(v) + ' h');
+tkCell('med_asig', 'mediana_asignados_h', (v) => v == null ? '—' : tkFmt(v) + ' horas');
+tkCell('pct_sin', 'pct_sin_asignar', (v) => v + '%');
+tkCell('masivos', 'cierres_masivos', (v) => tkInt(v));
+tkCell('desde', 'desde', (v) => v ?? '—');
+tkCell('hasta', 'hasta', (v) => v ?? '—');
+
+dash.draw('chart', (el) => {
+  const d = dash.data('por_persona');
+  el.classList.toggle('dash-skeleton', d.status === 'loading');
+  if (d.status !== 'ok') { el.textContent = d.status === 'error' ? 'No se pudo cargar la gráfica.' : ''; return; }
+  const rows = d.data.filter((r) => r.tickets > 0)
+    .sort((a, b) => (a.mediana_h == null) - (b.mediana_h == null) || a.mediana_h - b.mediana_h);
+  const conDato = rows.filter((r) => r.mediana_h != null);
+  el.replaceChildren();
+  if (!rows.length) { el.textContent = 'Ningún analista tiene tickets en este periodo.'; return; }
+  const W = el.clientWidth || 600, rowH = 26, top = 8, bottom = 26;
+  const H = top + bottom + rows.length * rowH;
+  const svg = d3.select(el).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H)
+    .attr('role', 'img').attr('aria-label', 'Barras horizontales con la mediana de horas a solución de cada responsable');
+  const probe = svg.append('g');
+  let left = 0;
+  rows.forEach((r) => { const t = probe.append('text').attr('class', 'tk-name').text(r.responsable); left = Math.max(left, t.node().getComputedTextLength()); });
+  probe.remove();
+  left = Math.min(left + 12, W * 0.45);
+  const right = Math.min(150, W * 0.3);
+  const x = d3.scaleLinear().domain([0, d3.max(conDato, (r) => r.mediana_h) || 1]).nice().range([left, W - right]);
+  const y = d3.scaleBand().domain(rows.map((r) => r.responsable)).range([top, H - bottom]).padding(0.25);
+  svg.append('g').selectAll('line').data(x.ticks(Math.max(2, Math.floor((W - left) / 90)))).join('line')
+    .attr('x1', (v) => x(v)).attr('x2', (v) => x(v)).attr('y1', top).attr('y2', H - bottom)
+    .style('stroke', 'var(--cds-chart-grid)');
+  svg.append('g').attr('transform', `translate(0,${H - bottom})`)
+    .call(d3.axisBottom(x).ticks(Math.max(2, Math.floor((W - left) / 90))).tickSize(0).tickPadding(8).tickFormat((v) => v + ' h'))
+    .call((g) => g.select('.domain').remove());
+  svg.append('g').selectAll('text').data(rows).join('text').attr('class', 'tk-name')
+    .attr('x', left - 8).attr('y', (r) => y(r.responsable) + y.bandwidth() / 2).attr('dy', '0.35em').attr('text-anchor', 'end')
+    .text((r) => r.responsable);
+  const tip = d3.select(el).append('div').attr('class', 'tk-tip').attr('hidden', true);
+  svg.append('g').selectAll('rect').data(conDato).join('rect')
+    .attr('x', left).attr('y', (r) => y(r.responsable)).attr('height', y.bandwidth())
+    .attr('width', (r) => Math.max(2, x(r.mediana_h) - left)).attr('rx', 2)
+    .style('fill', (r) => r.medidos < 3 ? 'var(--cds-chart-muted)' : dash.colors[0])
+    .on('pointermove', (ev, r) => {
+      const [mx, my] = d3.pointer(ev, el);
+      tip.attr('hidden', null).text(`${r.responsable}: mediana ${tkFmt(r.mediana_h)} h · 75% en menos de ${tkFmt(r.p75_h)} h · ${r.medidos} medidos`);
+      const tw = tip.node().offsetWidth;
+      tip.style('left', Math.max(0, Math.min(mx + 12, el.clientWidth - tw)) + 'px').style('top', (my - 36) + 'px');
+    })
+    .on('pointerleave', () => tip.attr('hidden', true));
+  svg.append('g').selectAll('text').data(rows).join('text')
+    .attr('x', (r) => r.mediana_h == null ? left + 2 : x(r.mediana_h) + 6).attr('y', (r) => y(r.responsable) + y.bandwidth() / 2).attr('dy', '0.35em')
+    .text((r) => r.mediana_h != null ? `${tkFmt(r.mediana_h)} h · n=${r.medidos}`
+      : r.resueltos ? `sin dato · ${r.resueltos - r.medidos} cerrado(s) en limpieza masiva` : `sin dato · ${r.abiertos} abierto(s)`);
+});
+
+// Filtros: "Agrupar por" es un control fijo; "Periodo" se llena con los periodos que hay en los datos.
+const tkGrupos = { dia: 'día', semana: 'semana', mes: 'mes', trimestre: 'trimestre', semestre: 'semestre', anio: 'año' };
+dash.onData(() => {
+  const g = dash.params().agrupar || 'mes';
+  for (const sel of document.querySelectorAll('#tk-agrupar')) {
+    if (document.activeElement !== sel) sel.value = g;
+    sel.onchange = () => dash.setParams({ agrupar: sel.value, periodo: '' });
+  }
+  for (const b of document.querySelectorAll('#tk-reset')) b.onclick = () => dash.resetParams();
+});
+
+dash.draw('periodo', (sel) => {
+  const d = dash.data('periodos');
+  const p = dash.params();
+  const g = p.agrupar || 'mes';
+  const rows = d.status === 'ok' ? [...d.data].reverse() : [];
+  sel.replaceChildren(new Option('Todos', ''), ...rows.map((r) => new Option(`${tkEtiqueta(g, r.periodo)} (${r.tickets})`, r.periodo)));
+  sel.value = p.periodo || '';
+  sel.onchange = () => dash.setParams({ periodo: sel.value });
+});
+
+dash.draw('mostrando', (el) => {
+  const p = dash.params();
+  const g = p.agrupar || 'mes';
+  el.textContent = p.periodo ? `${tkEtiqueta(g, p.periodo)} (por ${tkGrupos[g]})` : 'todos los periodos';
+});
+
+dash.draw('tendencia', (el) => {
+  const d = dash.data('por_periodo');
+  el.classList.toggle('dash-skeleton', d.status === 'loading');
+  if (d.status !== 'ok') { el.textContent = d.status === 'error' ? 'No se pudo cargar la gráfica.' : ''; return; }
+  const p = dash.params();
+  const rows = d.data.slice(-24);
+  el.replaceChildren();
+  if (!rows.length) { el.textContent = 'Sin tickets en este periodo.'; return; }
+  const g = rows[0].nivel;
+  const sel = p.agrupar === g ? (p.periodo || '') : '';
+  const W = el.clientWidth || 600, H = 280, top = 22, bottom = 52, left = 44, right = 8;
+  const svg = d3.select(el).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H)
+    .attr('role', 'img').attr('aria-label', `Columnas con la mediana de horas a solución por ${tkGrupos[g]}`);
+  const x = d3.scaleBand().domain(rows.map((r) => r.periodo)).range([left, W - right]).padding(0.2);
+  const y = d3.scaleLinear().domain([0, d3.max(rows, (r) => r.mediana_h) || 1]).nice().range([H - bottom, top]);
+  svg.append('g').selectAll('line').data(y.ticks(4)).join('line')
+    .attr('x1', left).attr('x2', W - right).attr('y1', (v) => y(v)).attr('y2', (v) => y(v)).style('stroke', 'var(--cds-chart-grid)');
+  svg.append('g').attr('transform', `translate(${left},0)`)
+    .call(d3.axisLeft(y).ticks(4).tickSize(0).tickPadding(6).tickFormat((v) => v + ' h'))
+    .call((a) => a.select('.domain').remove());
+  const every = Math.max(1, Math.ceil(rows.length / Math.max(1, Math.floor((W - left) / 70))));
+  svg.append('g').attr('transform', `translate(0,${H - bottom})`)
+    .call(d3.axisBottom(x).tickSize(0).tickPadding(8).tickValues(rows.map((r) => r.periodo).filter((_, i) => i % every === 0))
+      .tickFormat((k) => tkEtiqueta(g, k).replace('Sem. del ', '')))
+    .call((a) => a.select('.domain').remove());
+  const tip = d3.select(el).append('div').attr('class', 'tk-tip').attr('hidden', true);
+  svg.append('g').selectAll('rect').data(rows.filter((r) => r.mediana_h != null)).join('rect')
+    .attr('x', (r) => x(r.periodo)).attr('width', x.bandwidth())
+    .attr('y', (r) => y(r.mediana_h)).attr('height', (r) => Math.max(1, y(0) - y(r.mediana_h))).attr('rx', 2)
+    .style('fill', (r) => (!sel || r.periodo === sel) ? dash.colors[0] : 'var(--cds-chart-muted)')
+    .style('cursor', 'pointer')
+    .on('click', (ev, r) => dash.setParams(r.periodo === sel ? { periodo: '' } : { agrupar: g, periodo: r.periodo }))
+    .on('pointermove', (ev, r) => {
+      const [mx, my] = d3.pointer(ev, el);
+      tip.attr('hidden', null).text(`${tkEtiqueta(g, r.periodo)}: mediana ${tkFmt(r.mediana_h)} h · ${r.tickets} tickets · ${r.medidos} medidos`);
+      const tw = tip.node().offsetWidth;
+      tip.style('left', Math.max(0, Math.min(mx + 12, el.clientWidth - tw)) + 'px').style('top', (my - 36) + 'px');
+    })
+    .on('pointerleave', () => tip.attr('hidden', true));
+  if (x.bandwidth() >= 18) {
+    svg.append('g').selectAll('text').data(rows).join('text')
+      .attr('x', (r) => x(r.periodo) + x.bandwidth() / 2).attr('text-anchor', 'middle')
+      .attr('y', (r) => (r.mediana_h != null ? y(r.mediana_h) : y(0)) - 5)
+      .text((r) => tkInt(r.tickets));
+  }
+});
+
+dash.draw('tabla_periodo', (tb) => {
+  const d = dash.data('por_periodo');
+  tb.replaceChildren();
+  if (d.status !== 'ok') {
+    const tr = tb.insertRow(); const td = tr.insertCell(); td.colSpan = 6;
+    td.textContent = d.status === 'error' ? 'No se pudo cargar la tabla.' : 'Cargando…';
+    return;
+  }
+  for (const r of [...d.data].reverse()) {
+    const tr = tb.insertRow();
+    tr.dataset.key = encodeURIComponent(r.periodo);
+    const vals = [tkEtiqueta(r.nivel, r.periodo), tkInt(r.tickets), tkInt(r.resueltos), tkInt(r.medidos), r.mediana_h == null ? '—' : tkFmt(r.mediana_h), tkInt(r.sin_asignar)];
+    for (const v of vals) tr.insertCell().textContent = v;
+  }
+});
+
+function tkTable(name, source, cols) {
+  dash.draw(name, (tb) => {
+    const d = dash.data(source);
+    tb.replaceChildren();
+    if (d.status !== 'ok') {
+      const tr = tb.insertRow(); const td = tr.insertCell(); td.colSpan = cols.length;
+      td.textContent = d.status === 'error' ? 'No se pudo cargar la tabla.' : 'Cargando…';
+      return;
+    }
+    for (const r of d.data) {
+      const tr = tb.insertRow();
+      for (const [f, fmt] of cols) { const td = tr.insertCell(); const v = r[f]; td.textContent = v == null ? '—' : fmt ? fmt(v) : v; }
+    }
+  });
+}
+tkTable('tabla_persona', 'por_persona', [['responsable'], ['tickets', tkInt], ['resueltos', tkInt], ['medidos', tkInt], ['mediana_h', tkFmt], ['p75_h', tkFmt], ['abiertos', tkInt]]);
+tkTable('tabla_lista', 'por_lista', [['lista'], ['tickets', tkInt], ['con_responsable', tkInt], ['abiertos', tkInt], ['mediana_h', tkFmt]]);
+</script>
+
+<p class="tk-footer">Datos actualizados: <span data-generado>—</span> (hora del centro de México). Se actualizan solos cada mañana desde ClickUp y Slack. <a href="https://github.com/guillermovillanueva-source/tickets-escalados-galileo">Código</a></p>
+</div>
+</body>
+</html>
